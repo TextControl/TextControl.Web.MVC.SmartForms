@@ -1,0 +1,136 @@
+﻿@using TXTextControl.Web.MVC
+
+@{
+    ViewBag.Title = "Editor";
+}
+
+<div class="row">
+
+    <div class="col-lg-5">
+
+        @Html.TXTextControl().TextControl().LoadText(Server.MapPath("~/App_Data/form.tx"), TXTextControl.Web.StreamType.InternalUnicodeFormat).Render()
+
+        <div class="form-group">
+            <label for="subTextPartName">SubTextPart Name:</label>
+            <input class="form-control" type="text" id="subTextPartName" placeholder="SubTextPart Name" /><br />
+            <input class="btn btn-primary" type="button" value="Insert SubTextPart" onclick="addSubTextPart()" />
+        </div>
+
+    </div>
+
+    <div class="col-lg-2">
+        <div class="form-group">
+            <input class="btn btn-primary" type="button" value="Convert to HTML Form ➜" onclick="createHtmlForm()" />
+        </div>
+    </div>
+
+
+    <div class="col-lg-5">
+        <div id="smartForm"></div>
+    </div>
+
+</div>
+
+<script>
+
+    function createHtmlForm() {
+
+        var bDocument;
+        var serviceURL = "@Url.Action("CreateForm", "Home")";
+
+          // save document
+          TXTextControl.saveDocument(TXTextControl.StreamType.InternalUnicodeFormat, function (e) {
+              bDocument = e.data;
+              // send document to controller
+              $.ajax({
+                  type: "POST",
+                  url: serviceURL,
+                  data: {
+                      document: e.data
+                  },
+                  success: successFunc,
+                  error: errorFunc
+              });
+          });
+        
+        function successFunc(data, status) {
+
+            $("#smartForm").empty();
+
+            data.forEach(section => {
+                var fieldset = $("<form><fieldset><legend>" + section.Name + "</legend></fieldset></form>").appendTo("#smartForm");
+
+                section.FormFields.forEach(formField => {
+
+                    switch (formField.TypeName) {
+
+                        case "SmartTextFormField":
+                            fieldset.append($("<div class='form-group'><label for='" + formField.Name + "'>" + formField.Name.toUpperCase() + "</label><input placeholder='Type in " + formField.Name + "' class='form-control' name='" + formField.Name + "' id='" + formField.Name + "' type='text' value='" + formField.Text + "' /></div>"));
+                            break;
+
+                        case "SmartCheckboxField":
+
+                            var checked = "";
+
+                            if (formField.Checked === true)
+                                checked = "checked";
+
+                            fieldset.append($("<div class='form-check'><input " + checked + " class='form-check-input' name='" + formField.Name + "' id='" + formField.Name + "' type='checkbox' /><label class='form-check-label' for='" + formField.Name + "'>" + formField.Name.toUpperCase() + "</label></div>"));
+                            break;
+
+                        case "SmartDateField":
+                            fieldset.append($("<div class='form-group'><label for='" + formField.Name + "'>" + formField.Name.toUpperCase() + "</label><input class='form-control' name='" + formField.Name + "' id='" + formField.Name + "' type='date' value='" + formField.Date + "' /></div>"));
+                            break;
+
+                        case "SmartDropdownField":
+
+                            var items;
+
+                            formField.Items.forEach(item => {
+
+                                if (item === formField.Text)
+                                    items += "<option selected>" + item + "</option>"
+                                else
+                                    items += "<option>" + item + "</option>"
+                            });
+
+                            fieldset.append($("<div class='form-group'><label for='" + formField.Name + "'>" + formField.Name.toUpperCase() + "</label><select class='form-control' name='" + formField.Name + "' id='" + formField.Name + "'>" + items + "</div></div>"));
+                            break;
+
+                    }
+                    
+                });
+                
+            });
+        }
+
+        function errorFunc() {
+          alert("Error");
+        }
+
+    }
+
+    async function addSubTextPart() {
+        var range = await getSelectionRange();
+
+        var name = document.getElementById("subTextPartName").value;
+        TXTextControl.subTextParts.add(name, 0, range.start, range.length);
+        TXTextControl.focus();
+    }
+
+    function getSelectionRange() {
+        return new Promise(resolve => {
+            TXTextControl.selection.getStart(function (curSelStart) {
+                TXTextControl.selection.getLength(function (curSelLength) {
+
+                    var range = {
+                        start: curSelStart + 1,
+                        length: curSelLength,
+                    };
+
+                    resolve(range);
+                });
+            });
+        });
+    }
+</script>
